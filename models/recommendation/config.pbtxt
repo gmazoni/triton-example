@@ -1,0 +1,25 @@
+name: "recommendation"
+backend: "python"
+
+parameters: {
+  key: "EXECUTION_ENV_PATH",
+  value: {string_value: "/opt/tritonserver/envs/recommendation.tar.gz"}
+}
+
+input [
+  {
+    name: "INPUT0"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  }
+]
+output [
+  {
+    name: "OUTPUT0"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  }
+]
+
+
+instance_group [{ kind: KIND_CPU }]

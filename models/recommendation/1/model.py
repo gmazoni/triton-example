@@ -1,5 +1,29 @@
 import numpy as np
 import triton_python_backend_utils as pb_utils
+import logging
+
+import os
+
+from gensim import  models
+import nltk
+import ssl
+
+import json
+
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+nltk.download('punkt')
+
+from nltk.tokenize import word_tokenize
+
+# Set up the logging configuration
+logging.basicConfig(level=logging.DEBUG)
+
 
 class TritonPythonModel:
     """Your Python model must use the same class name. Every Python model
@@ -7,29 +31,11 @@ class TritonPythonModel:
     """
 
     def initialize(self, args):
-        """`initialize` is called only once when the model is being loaded.
-        Implementing `initialize` function is optional. This function allows
-        the model to intialize any state associated with this model.
+        logging.debug("Initializing the model...")
+        self.lda = models.ldamodel.LdaModel.load("/opt/tritonserver/recommendation.model")
+        logging.debug("Model loaded...")
+        
 
-        Parameters
-        ----------
-        args : dict
-          Both keys and values are strings. The dictionary keys and values are:
-          * model_config: A JSON string containing the model configuration
-          * model_instance_kind: A string containing model instance kind
-          * model_instance_device_id: A string containing model instance device ID
-          * model_repository: Model repository path
-          * model_version: Model version
-          * model_name: Model name
-        """
-        print('Initializing...'
-              f'\n\tmodel_config: {args["model_config"]}'
-              f'\n\tmodel_instance_kind: {args["model_instance_kind"]}'
-              f'\n\tmodel_instance_device_id: {args["model_instance_device_id"]}'
-              f'\n\tmodel_repository: {args["model_repository"]}'
-              f'\n\tmodel_version: {args["model_version"]}'
-              f'\n\tmodel_name: {args["model_name"]}'
-              )
 
     def execute(self, requests):
         """`execute` MUST be implemented in every Python model. `execute`
@@ -52,17 +58,30 @@ class TritonPythonModel:
           A list of pb_utils.InferenceResponse. The length of this list must
           be the same as `requests`
         """
+        logging.debug("Executing the model...")
+
+        # list filenames in current dir
+
+        logging.debug(f"Current dir: {os.getcwd()}")
+        logging.debug(f"Files in current dir: {os.listdir()}")
+
+        logging.debug(word_tokenize("Hello world"))
+
         responses = []
 
         # Every Python backend must iterate over everyone of the requests
         # and create a pb_utils.InferenceResponse for each of them.
         for request in requests:
             in_0 = pb_utils.get_input_tensor_by_name(request, "INPUT0")
-            name = in_0.as_numpy()[0].decode("utf-8")
+            user_data = in_0.as_numpy()[0].decode("utf-8")
 
-            gretting = f"Hello world, {name}!"
+            user_tokens = word_tokenize(user_data)
+            user_vector = self.lda.infer_vector(user_tokens)
+            similar_documents = self.lda.docvecs.most_similar([user_vector])
 
-            out_tensor_0 = pb_utils.Tensor("OUTPUT0", np.array([gretting], dtype=np.bytes_))
+            out_tensor_0 = pb_utils.Tensor(
+                "OUTPUT0", np.array([json.dumps(similar_documents)], dtype=np.bytes_)
+            )
 
             responses.append(pb_utils.InferenceResponse([out_tensor_0]))
 
@@ -73,4 +92,4 @@ class TritonPythonModel:
         Implementing `finalize` function is OPTIONAL. This function allows
         the model to perform any necessary clean ups before exit.
         """
-        print('Cleaning up...')
+        logging.debug("Finalizing the model...")

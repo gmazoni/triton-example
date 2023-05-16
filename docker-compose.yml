@@ -9,7 +9,10 @@ services:
       - 8002:8002 #Metrics
     volumes:
       - ./models:/models
+      - ./recommendation.tar.gz:/opt/tritonserver/envs/recommendation.tar.gz
+      - ./recommendation.model:/opt/tritonserver/recommendation.model
     command: ["tritonserver", "--model-repository=/models"]
+    shm_size: '2g'
     # deploy:
     #   resources:
     #     reservations:
